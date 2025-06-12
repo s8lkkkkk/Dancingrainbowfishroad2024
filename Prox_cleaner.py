@@ -1,35 +1,22 @@
-import requests
-
-def check_proxy(proxy):
-    proxies = {
-        'http': proxy,
-        'https': proxy
-    }
+def test_proxy(proxy_url):
+    proxy = get_proxy_dict(proxy_url)
     try:
-        r = requests.get('https://auth.roblox.com', proxies=proxies, timeout=5)
+        r = requests.get("https://httpbin.org/ip", proxies=proxy, timeout=5)
         if r.status_code == 200:
-            print(f"✅ Proxy works: {proxy}")
+            print(f"[✔️] Proxy working: {proxy_url}")
             return True
-        else:
-            print(f"❌ Proxy failed (status {r.status_code}): {proxy}")
-    except Exception as e:
-        print(f"❌ Proxy error: {proxy} | {e}")
+    except:
+        pass
+    print(f"[✖️] Proxy failed: {proxy_url}")
     return False
 
-def clean_proxies(file_path='proxies.txt'):
-    with open(file_path, 'r') as f:
-        proxies = [line.strip() for line in f if line.strip()]
-
+def filter_working_proxies(proxy_file='proxies.txt'):
     working_proxies = []
-    for proxy in proxies:
-        if check_proxy(proxy):
-            working_proxies.append(proxy)
-
-    with open(file_path, 'w') as f:
+    proxies = load_proxies(proxy_file)
+    for p in proxies:
+        if test_proxy(p):
+            working_proxies.append(p)
+    with open('working_proxies.txt', 'w') as f:
         for wp in working_proxies:
             f.write(wp + '\n')
-
-    print(f"\nDone! {len(working_proxies)} working proxies saved to {file_path}")
-
-if __name__ == "__main__":
-    clean_proxies()
+    print(f"Saved {len(working_proxies)} working proxies to working_proxies.txt")
