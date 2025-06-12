@@ -35,7 +35,7 @@ def try_login(username, password):
         return False
 
     # Check for successful login (you may also inspect cookies or tokens here)
-    if "roblox.com/home" in response.url or response.status_code == 200 and "X-CSRF-TOKEN" in response.headers:
+    if "https://roblox.com/home" in response.url or response.status_code == 200 and "X-CSRF-TOKEN" in response.headers:
         return True
 
     return False
