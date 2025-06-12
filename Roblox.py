@@ -55,7 +55,7 @@ def try_login(username, password, proxy=None):
 
     # Get CSRF token
     try:
-        token_req = session.post(login_url, json={}, timeout=15)
+        token_req = session.post(login_url, timeout=15)  # removed json={} here
     except Exception as e:
         print(f"[-] Proxy connection failed: {proxy} | {e}")
         return False
@@ -119,9 +119,8 @@ def check_credentials(file_path, proxy_file='proxies.txt'):
 
                 try_login(username, password, proxy)
 
-                delay = random.uniform(2, 5)
-                print(f"[⏳] Waiting {delay:.2f} seconds to avoid rate limiting...\n")
-                time.sleep(delay)
+                print(f"[⏳] Waiting 8 seconds to avoid rate limiting...\n")
+                time.sleep(8)
 
     except FileNotFoundError:
         print(f"[!] Credentials file not found: {file_path}")
